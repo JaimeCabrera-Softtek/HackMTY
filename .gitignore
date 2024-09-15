@@ -1,0 +1,8 @@
+.venv
+.env
+.idea
+kernel.errors.txt
+Prueba.mp4
+data
+datasets
+runs
