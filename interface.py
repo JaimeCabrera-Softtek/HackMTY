@@ -4,14 +4,15 @@ import time
 import cv2
 import numpy as np
 import openvino as ov
-from ultralytics.yolo.utils import ops
-from ultralytics.yolo.utils.plotting import colors
+from ultralytics.utils import ops
+from ultralytics.utils.plotting import colors
 import torch
 from ultralytics import YOLO
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from typing import Tuple, Dict
+import matplotlib.image as mpimg
 
 # Load YOLO model and OpenVINO core
 @st.cache_resource
@@ -161,6 +162,9 @@ def run_object_detection(video_source, model, device="AUTO"):
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    # Load the background image
+    background_img = mpimg.imread('floor.png')
+
     # Streamlit placeholders
     video_placeholder = st.empty()
     heatmap_placeholder = st.empty()
@@ -186,8 +190,8 @@ def run_object_detection(video_source, model, device="AUTO"):
 
         for detection in detections['det']:
             if detection[5] == 0:  # Class 0 is person
-                x_center = (detection[0] + detection[2]) / 2
-                y_center = (detection[1] + detection[3]) / 2
+                x_center = float((detection[0] + detection[2]) / 2)
+                y_center = float((detection[1] + detection[3]) / 2)
                 df = pd.concat([df, pd.DataFrame({'x': [x_center], 'y': [y_center]})], ignore_index=True)
 
         image_with_boxes = draw_results(detections, input_image, {0: 'person'})
@@ -203,18 +207,26 @@ def run_object_detection(video_source, model, device="AUTO"):
         video_placeholder.image(image_with_boxes, channels="BGR", use_column_width=True)
 
         # Update heatmap
-        fig, ax = plt.subplots(figsize=(10, 6))
-        sns.kdeplot(data=df, x="x", y="y", cmap="YlOrRd", fill=True, cbar=True, ax=ax)
-        ax.set_xlim(0, frame_width)
-        ax.set_ylim(frame_height, 0)
-        ax.set_title("Real-time Heatmap of Person Detections")
-        heatmap_placeholder.pyplot(fig)
-        plt.close(fig)
+        if len(df) > 0:  # Only create heatmap if there's data
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
+            # Display the background image
+            ax.imshow(background_img, extent=[0, frame_width, frame_height, 0])
+            
+            # Create the heatmap overlay
+            sns.kdeplot(data=df, x="x", y="y", cmap="YlOrRd", fill=True, alpha=0.5, cbar=False, ax=ax)
+            
+            ax.set_xlim(0, frame_width)
+            ax.set_ylim(frame_height, 0)
+            ax.set_title("Real-time Heatmap of Person Detections")
+            ax.axis('off')  # Hide axes
+            heatmap_placeholder.pyplot(fig)
+            plt.close(fig)
 
     cap.release()
 
 def main():
-    st.title("YOLOv8 OpenVINO Person Detection with Real-time Heatmap")
+    st.title("Mime Client follower")
 
     # Choose between webcam and video upload
     source_option = st.radio("Select input source:", ("Webcam", "Upload Video"))
